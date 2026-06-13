@@ -153,7 +153,7 @@ def explain_patient(patient: dict) -> pd.DataFrame:
     explanation = pd.DataFrame(
         {
             "feature": shap_df["feature"],
-            "value": ["N/A"] * len(shap_df),
+            "value": ["Global Driver"] * len(shap_df),
             "shap": shap_df["mean_abs_shap"],
         }
     )
