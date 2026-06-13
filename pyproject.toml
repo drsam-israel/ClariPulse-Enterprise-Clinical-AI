@@ -1,0 +1,8 @@
+[project]
+name = "claripulse"
+version = "1.0.0"
+description = "ClariPulse Enterprise Clinical AI Product Foundation"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
