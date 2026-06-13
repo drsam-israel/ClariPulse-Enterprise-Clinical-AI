@@ -2,7 +2,7 @@
 ===============================================================================
 ClariPulse™ Enterprise Clinical AI Product
 Module: app.ml.explainability
-Purpose: Generate SHAP explainability outputs for the champion model.
+Purpose: Generate and serve SHAP explainability outputs.
 Author: Samuel Israel, MD
 License: MIT
 ===============================================================================
@@ -14,6 +14,7 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+
 try:
     import shap
 except ImportError:
@@ -28,12 +29,24 @@ REPORT_DIR = PROJECT_ROOT / "reports"
 MODEL_PATH = MODEL_DIR / "champion_model.pkl"
 X_TEST_PATH = MODEL_DIR / "X_test.pkl"
 FEATURE_NAMES_PATH = MODEL_DIR / "feature_names.pkl"
-
 SHAP_OUTPUT_PATH = REPORT_DIR / "shap_feature_importance.csv"
 
 
-def load_artifacts():
-    """Load champion model and test data."""
+def load_artifacts() -> tuple:
+    """
+    Load champion model, X_test, and feature names.
+
+    Used only for local SHAP generation where X_test.pkl exists.
+    """
+
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
+
+    if not X_TEST_PATH.exists():
+        raise FileNotFoundError(f"X_test not found: {X_TEST_PATH}")
+
+    if not FEATURE_NAMES_PATH.exists():
+        raise FileNotFoundError(f"Feature names not found: {FEATURE_NAMES_PATH}")
 
     model = joblib.load(MODEL_PATH)
     X_test = joblib.load(X_TEST_PATH)
@@ -45,7 +58,14 @@ def load_artifacts():
 
 
 def generate_shap_importance(sample_size: int = 1000) -> pd.DataFrame:
-    """Generate global SHAP feature importance."""
+    """
+    Generate global SHAP feature importance.
+
+    This function is intended for local/offline use because it requires X_test.pkl.
+    """
+
+    if shap is None:
+        raise ImportError("SHAP is not installed. Add `shap` to requirements.txt.")
 
     model, X_test = load_artifacts()
 
@@ -71,24 +91,79 @@ def generate_shap_importance(sample_size: int = 1000) -> pd.DataFrame:
 
 
 def explain_single_patient(index: int = 0) -> pd.DataFrame:
-    """Generate SHAP explanation for one patient."""
+    """
+    Generate SHAP explanation for one patient.
+
+    This is intended for local/offline use because it requires X_test.pkl.
+    """
+
+    if shap is None:
+        raise ImportError("SHAP is not installed. Add `shap` to requirements.txt.")
 
     model, X_test = load_artifacts()
 
     patient = X_test.iloc[[index]]
 
-    explainer = shap.Explainer(model, X_test.sample(1000, random_state=42))
+    explainer = shap.Explainer(
+        model,
+        X_test.sample(
+            n=min(1000, len(X_test)),
+            random_state=42,
+        ),
+    )
+
     shap_values = explainer(patient)
 
     explanation = pd.DataFrame(
         {
             "feature": patient.columns,
-            "feature_value": patient.iloc[0].values,
-            "shap_value": shap_values.values[0],
+            "value": patient.iloc[0].values,
+            "shap": shap_values.values[0],
         }
-    ).sort_values("shap_value", key=abs, ascending=False)
+    )
 
-    return explanation
+    explanation["abs_shap"] = explanation["shap"].abs()
+
+    return explanation.sort_values(
+        "abs_shap",
+        ascending=False,
+    )
+
+
+def explain_patient(patient: dict) -> pd.DataFrame:
+    """
+    Deployment-safe patient explanation.
+
+    Returns a DataFrame compatible with Patient Explorer without requiring X_test.pkl.
+    Uses precomputed global SHAP feature importance from reports/shap_feature_importance.csv.
+    """
+
+    if not SHAP_OUTPUT_PATH.exists():
+        return pd.DataFrame(
+            columns=["feature", "value", "shap", "abs_shap"]
+        )
+
+    shap_df = pd.read_csv(SHAP_OUTPUT_PATH)
+
+    if shap_df.empty or "feature" not in shap_df.columns or "mean_abs_shap" not in shap_df.columns:
+        return pd.DataFrame(
+            columns=["feature", "value", "shap", "abs_shap"]
+        )
+
+    explanation = pd.DataFrame(
+        {
+            "feature": shap_df["feature"],
+            "value": ["N/A"] * len(shap_df),
+            "shap": shap_df["mean_abs_shap"],
+        }
+    )
+
+    explanation["abs_shap"] = explanation["shap"].abs()
+
+    return explanation.sort_values(
+        "abs_shap",
+        ascending=False,
+    )
 
 
 if __name__ == "__main__":
@@ -105,59 +180,3 @@ if __name__ == "__main__":
     patient_explanation = explain_single_patient(index=0)
 
     print(patient_explanation.head(10))
-
-def explain_patient(patient: dict) -> pd.DataFrame:
-    """
-    Return SHAP explanation for a single patient.
-    """
-
-    model, X_test = load_artifacts()
-
-    row = {feature: 0 for feature in X_test.columns}
-
-    for key, value in patient.items():
-        if key in row:
-            row[key] = value
-
-    patient_df = pd.DataFrame([row])
-
-    explainer = shap.Explainer(
-        model,
-        X_test.sample(
-            min(1000, len(X_test)),
-            random_state=42,
-        ),
-    )
-def explain_patient(patient: dict) -> dict:
-    """
-    Deployment-safe patient explanation.
-
-    Uses precomputed global SHAP feature importance instead of loading X_test.pkl.
-    This prevents Streamlit Cloud deployment errors.
-    """
-
-    import pandas as pd
-    from pathlib import Path
-
-    project_root = Path(__file__).resolve().parents[2]
-    shap_path = project_root / "reports" / "shap_feature_importance.csv"
-
-    if not shap_path.exists():
-        return {
-            "status": "Unavailable",
-            "message": "SHAP feature importance file not found.",
-            "top_drivers": [],
-        }
-
-    shap_df = pd.read_csv(shap_path)
-
-    top_drivers = (
-        shap_df.head(5)[["feature", "mean_abs_shap"]]
-        .to_dict(orient="records")
-    )
-
-    return {
-        "status": "Available",
-        "message": "Top AI risk drivers are based on global SHAP feature importance.",
-        "top_drivers": top_drivers,
-    }
