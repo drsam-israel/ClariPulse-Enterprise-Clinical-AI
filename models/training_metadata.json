@@ -1,7 +1,7 @@
 {
     "product": "ClariPulse\u2122",
     "module": "app.ml.train_models",
-    "training_timestamp": "2026-06-12T18:59:52.159571",
+    "training_timestamp": "2026-06-12T19:17:13.871301",
     "feature_count": 32,
     "train_rows": 80000,
     "test_rows": 20000,
