@@ -1,16 +1,14 @@
-
 venv/
 __pycache__/
 *.pyc
 
-models/*.pkl
-models/*.joblib
-models/*.sav
-models/*.npy
-
+models/
 data/raw/
-data/synthetic/*.csv
-
+data/synthetic/
 logs/
 cache/
-.streamlit/secrets.toml
+
+*.pkl
+*.joblib
+*.sav
+*.npy
