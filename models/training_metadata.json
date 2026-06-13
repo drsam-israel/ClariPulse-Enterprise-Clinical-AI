@@ -1,0 +1,14 @@
+{
+    "product": "ClariPulse\u2122",
+    "module": "app.ml.train_models",
+    "training_timestamp": "2026-06-12T18:59:52.159571",
+    "feature_count": 32,
+    "train_rows": 80000,
+    "test_rows": 20000,
+    "champion_model": "Logistic Regression",
+    "benchmark_report": "C:\\Users\\DR SAMUEL ISRAEL\\Downloads\\ClariPulse_Enterprise_Foundation_v1\\ClariPulse\\reports\\model_benchmark_results.csv",
+    "model_path": "C:\\Users\\DR SAMUEL ISRAEL\\Downloads\\ClariPulse_Enterprise_Foundation_v1\\ClariPulse\\models\\champion_model.pkl",
+    "scaler_path": "C:\\Users\\DR SAMUEL ISRAEL\\Downloads\\ClariPulse_Enterprise_Foundation_v1\\ClariPulse\\models\\scaler.pkl",
+    "feature_names_path": "C:\\Users\\DR SAMUEL ISRAEL\\Downloads\\ClariPulse_Enterprise_Foundation_v1\\ClariPulse\\models\\feature_names.pkl",
+    "version": "1.0.0"
+}
