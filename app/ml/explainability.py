@@ -14,7 +14,10 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
-import shap
+try:
+    import shap
+except ImportError:
+    shap = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -125,22 +128,36 @@ def explain_patient(patient: dict) -> pd.DataFrame:
             random_state=42,
         ),
     )
+def explain_patient(patient: dict) -> dict:
+    """
+    Deployment-safe patient explanation.
 
-    shap_values = explainer(patient_df)
+    Uses precomputed global SHAP feature importance instead of loading X_test.pkl.
+    This prevents Streamlit Cloud deployment errors.
+    """
 
-    explanation = pd.DataFrame(
-        {
-            "feature": patient_df.columns,
-            "value": patient_df.iloc[0].values,
-            "shap": shap_values.values[0],
+    import pandas as pd
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[2]
+    shap_path = project_root / "reports" / "shap_feature_importance.csv"
+
+    if not shap_path.exists():
+        return {
+            "status": "Unavailable",
+            "message": "SHAP feature importance file not found.",
+            "top_drivers": [],
         }
+
+    shap_df = pd.read_csv(shap_path)
+
+    top_drivers = (
+        shap_df.head(5)[["feature", "mean_abs_shap"]]
+        .to_dict(orient="records")
     )
 
-    explanation["abs_shap"] = explanation["shap"].abs()
-
-    explanation = explanation.sort_values(
-        "abs_shap",
-        ascending=False,
-    )
-
-    return explanation
+    return {
+        "status": "Available",
+        "message": "Top AI risk drivers are based on global SHAP feature importance.",
+        "top_drivers": top_drivers,
+    }
