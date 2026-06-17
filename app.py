@@ -79,7 +79,12 @@ pages = {
            "app/pages/08_Product_Intelligence_Center.py",
             title="Product Intelligence Center",
             icon="📊",
-)
+        ),
+        st.Page(
+            "app/pages/09_Data_Source_Manager.py",
+            title="Data Source Manager",
+            icon="🔌",
+        )
     ]
 }
 

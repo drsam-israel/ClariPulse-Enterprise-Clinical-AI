@@ -1,0 +1,13 @@
+{
+    "product": "ClariPulse\u2122",
+    "version": "2.0-realworld-diabetes",
+    "module": "app.v2.ml.train_diabetes_models",
+    "training_timestamp": "2026-06-16T11:26:07.700563",
+    "dataset": "UCI Diabetes 130-US Hospitals Readmission Dataset",
+    "use_case": "30-Day Readmission Prediction",
+    "feature_count": 142,
+    "train_rows": 81410,
+    "test_rows": 20353,
+    "target_positive_rate": 11.16,
+    "champion_model": "XGBoost"
+}

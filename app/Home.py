@@ -3,7 +3,7 @@
 ClariPulse™ Enterprise Clinical AI Product
 Module: app.Home
 Purpose:
-    Enterprise landing page for ClariPulse™.
+    Enterprise landing page for ClariPulse™ V2 Real-World Clinical AI Product.
 Author: Samuel Israel, MD
 Project: ClariPulse™
 License: MIT
@@ -12,25 +12,26 @@ License: MIT
 
 from __future__ import annotations
 
-import streamlit as st
-
 import sys
 from pathlib import Path
 
-from app.services.data_service import get_product_status
+import streamlit as st
+
+from app.v2.services.v2_data_service import get_v2_product_status
+from components.hero import render_hero
+from components.metric_cards import render_metric_cards
+from config.settings import APP_NAME, FOOTER_TEXT, TECH_STACK
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-from config.settings import APP_NAME, APP_VERSION, FOOTER_TEXT, TECH_STACK
-from components.executive_cards import render_card_grid
-from components.hero import render_hero
-from components.metric_cards import render_metric_cards
 
 
 def inject_home_css() -> None:
     """Inject page-specific enterprise styling."""
+
     st.markdown(
         """
         <style>
@@ -75,14 +76,16 @@ def inject_home_css() -> None:
 
 
 def render_positioning() -> None:
-    """Render product positioning statement."""
+    """Render V2 product positioning statement."""
+
     st.markdown(
         """
         <div class="claripulse-section-note">
-            <strong>Enterprise Positioning:</strong> ClariPulse™ is a next-generation
-            Clinical AI platform that unifies predictive analytics, explainable AI,
-            executive intelligence, and responsible AI governance into a single,
-            enterprise-grade decision support ecosystem for healthcare organizations.
+            <strong>Enterprise Positioning:</strong> ClariPulse™ V2 is a real-world
+            Clinical AI product for 30-day diabetes readmission intelligence,
+            integrating predictive analytics, SHAP explainability, executive
+            intelligence, model benchmarking, and Responsible AI governance into
+            a unified enterprise decision support ecosystem.
         </div>
         """,
         unsafe_allow_html=True,
@@ -91,13 +94,15 @@ def render_positioning() -> None:
 
 def render_disclaimer() -> None:
     """Render clinical safety and demonstration disclaimer."""
+
     st.markdown(
         """
         <div class="claripulse-alert">
-            <strong>ClariPulse™ demonstration notice:</strong>
-            This product uses fully synthetic data for portfolio, education, and product
-            demonstration purposes. It is not a medical device and must not be used for
-            real clinical decision-making.
+            <strong>Clinical AI demonstration notice:</strong>
+            ClariPulse™ V2 uses a real-world de-identified diabetes readmission
+            research dataset for portfolio, education, and product demonstration
+            purposes. It is not a medical device and must not be used for real
+            clinical decision-making.
         </div>
         """,
         unsafe_allow_html=True,
@@ -105,93 +110,114 @@ def render_disclaimer() -> None:
 
 
 def render_capabilities() -> None:
-    """Render product capability cards."""
+    """Render product capability cards without custom HTML dependency."""
+
+    st.divider()
     st.subheader("Enterprise Product Capabilities")
 
-    cards = [
-        {
-            "badge": "Clinical AI",
-            "title": "Predictive Clinical Intelligence",
-            "description": (
-                "Risk prediction for mortality, readmission, sepsis, ICU transfer, "
-                "and length of stay using a governed multi-model pipeline."
-            ),
-        },
-        {
-            "badge": "XAI",
-            "title": "Explainable AI",
-            "description": (
-                "SHAP-based local and global explanations with clinician-friendly "
-                "interpretation and executive summaries."
-            ),
-        },
-        {
-            "badge": "Governance",
-            "title": "Responsible AI Governance",
-            "description": (
-                "Model registry, bias monitoring, drift tracking, auditability, "
-                "human oversight, and governance-ready evidence."
-            ),
-        },
-    ]
+    col1, col2, col3 = st.columns(3)
 
-    render_card_grid(cards, columns=3)
+    with col1:
+        with st.container(border=True):
+            st.markdown("### Clinical AI")
+            st.markdown("#### Real-World Readmission Intelligence")
+            st.write(
+                "Predicts 30-day diabetes readmission risk using real-world "
+                "hospital encounter data and a governed ML pipeline."
+            )
+
+    with col2:
+        with st.container(border=True):
+            st.markdown("### Explainable AI")
+            st.markdown("#### SHAP Transparency")
+            st.write(
+                "Provides global SHAP feature importance to support model "
+                "interpretability, clinician trust, and governance review."
+            )
+
+    with col3:
+        with st.container(border=True):
+            st.markdown("### Responsible AI")
+            st.markdown("#### Governance & Oversight")
+            st.write(
+                "Tracks model status, explainability readiness, governance evidence, "
+                "auditability, and human oversight controls."
+            )
 
 
 def render_foundation_status() -> None:
-    """Render product foundation metrics."""
+    """Render V2 product foundation metrics."""
+
+    status = get_v2_product_status()
+
     st.divider()
     st.subheader("Product Foundation Status")
 
     render_metric_cards(
         [
-            {"label": "Product Version", "value": APP_VERSION},
-            {"label": "Data Status", "value": st.session_state.get("data_status", "Ready")},
-            {"label": "Model Status", "value": st.session_state.get("model_status","Not Trained")},
-            {"label": "Governance", "value": st.session_state.get("governance_status", "Ready")},
+            {"label": "Product Version", "value": status["version"]},
+            {"label": "Data Status", "value": "Real-World Dataset"},
+            {"label": "Model Status", "value": status["status"]},
+            {"label": "Governance", "value": "Ready"},
         ]
     )
 
 
 def render_executive_kpis() -> None:
-    """Render executive product KPI cards below the hero using live product status."""
+    """Render V2 executive product KPI cards below the hero."""
 
-    status = get_product_status()
+    status = get_v2_product_status()
 
     render_metric_cards(
         [
-            {"label": "Patients Analysed", "value": "100,000"},
-            {"label": "Champion AUC", "value": status["champion_auc"]},
-            {"label": "Models Registered", "value": status["models_benchmarked"]},
-            {"label": "SHAP Coverage", "value": "100%"},
+            {"label": "Dataset Encounters", "value": status["dataset_rows"]},
+            {"label": "Unique Patients", "value": status["unique_patients"]},
+            {
+                "label": "30-Day Readmission Rate",
+                "value": f'{status["readmission_30day_rate"]}%',
+            },
+            {"label": "Champion Model", "value": status["champion_model"]},
         ]
     )
 
+    render_metric_cards(
+        [
+            {"label": "Cross-Val AUC", "value": status["cv_auc"]},
+            {"label": "Test AUC", "value": status["test_auc"]},
+            {"label": "Models Benchmarked", "value": status["models_benchmarked"]},
+            {"label": "SHAP Features", "value": status["shap_features"]},
+        ]
+    )
+
+
 def render_technology_stack() -> None:
     """Render technology stack section."""
+
     st.divider()
     st.subheader("Technology Stack")
     st.write(" • ".join(TECH_STACK))
 
 
 def render_next_steps() -> None:
-    """Render recommended build sequence."""
+    """Render V2 strategic roadmap."""
+
     st.divider()
-    st.subheader("Recommended Next Build Steps")
+    st.subheader("Strategic V2 Roadmap")
 
     st.markdown(
         """
-        1. Generate the enterprise synthetic healthcare dataset.
-        2. Build five-model benchmarking with Stratified 5-Fold Cross-Validation.
-        3. Select the Champion model and register all candidate models.
-        4. Generate SHAP explainability outputs.
-        5. Populate executive, clinical, governance, and product intelligence dashboards.
+        1. Expand real-world readmission intelligence across additional clinical cohorts.
+        2. Add CSV and SQL ingestion connectors for hospital analytics teams.
+        3. Design HL7/FHIR interoperability layer for EHR-ready integration.
+        4. Implement advanced model monitoring for drift, calibration, and fairness.
+        5. Prepare enterprise deployment pathway for Epic, Cerner, and OpenMRS ecosystems.
         """
     )
 
 
 def render_footer() -> None:
     """Render footer."""
+
     st.markdown(
         f"""
         <div class="claripulse-footer">
@@ -203,15 +229,16 @@ def render_footer() -> None:
 
 
 def render_home() -> None:
-    """Render the ClariPulse™ landing page."""
+    """Render the ClariPulse™ V2 landing page."""
+
     inject_home_css()
 
     render_hero(
         title=APP_NAME,
-        subtitle="Enterprise Clinical AI Product",
+        subtitle="Enterprise Clinical AI Product V2",
         description=(
-            "Predictive Analytics • Explainable AI • Executive Intelligence • "
-            "Responsible AI Governance"
+            "Real-World Diabetes Readmission Intelligence • SHAP Explainability • "
+            "Responsible AI Governance • Executive Decision Support"
         ),
     )
 

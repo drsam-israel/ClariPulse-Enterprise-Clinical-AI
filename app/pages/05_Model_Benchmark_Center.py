@@ -3,10 +3,11 @@
 ClariPulse™ Enterprise Clinical AI Product
 
 Module:
-    Model Benchmark
+    Model Benchmark Center
 
 Purpose:
-    Champion–Challenger model evaluation dashboard.
+    Champion–Challenger evaluation dashboard for the
+    Real-World Diabetes Readmission AI Model.
 
 Author:
     Samuel Israel, MD
@@ -23,94 +24,155 @@ import streamlit as st
 
 from components.hero import render_hero
 from components.metric_cards import render_metric_cards
-from app.services.data_service import (
-    get_benchmark_results,
-    get_model_registry,
-    get_training_metadata,
+
+from app.v2.services.v2_data_service import (
+    get_v2_benchmark_results,
+    get_v2_metadata,
+    get_v2_registry,
 )
 
+
 def render_page() -> None:
-    """Render Model Benchmark Center."""
+    """Render V2 Model Benchmark Center."""
 
     render_hero(
         title="Model Benchmark",
-        subtitle="Champion–Challenger AI Model Evaluation",
+        subtitle="Champion–Challenger Evaluation",
         description=(
-            "Live model benchmarking, champion selection, cross-validation evidence, "
-            "and enterprise AI performance governance."
+            "Real-world diabetes readmission model comparison using "
+            "cross-validation and holdout performance metrics."
         ),
     )
 
-    benchmark = get_benchmark_results()
-    registry = get_model_registry()
-    training = get_training_metadata()
+    benchmark = get_v2_benchmark_results()
+    registry = get_v2_registry()
+    metadata = get_v2_metadata()
 
     if benchmark.empty:
         st.warning(
-            "Benchmark results not found. Run: `python -m app.ml.train_models`"
+            "Benchmark results not found.\n\n"
+            "Run:\n"
+            "`python -m app.v2.ml.train_diabetes_models`"
         )
         return
 
-    champion_model = registry.get("champion_model", benchmark.iloc[0]["model"])
-    champion_auc = registry.get("auc", benchmark.iloc[0]["auc"])
-    feature_count = training.get("feature_count", "N/A")
+    champion_model = registry.get(
+        "champion_model",
+        benchmark.iloc[0]["model"],
+    )
+
+    cv_auc = registry.get(
+        "cv_auc",
+        benchmark.iloc[0]["auc"],
+    )
+
+    test_auc = registry.get(
+        "test_auc",
+        "N/A",
+    )
+
+    feature_count = metadata.get(
+        "feature_count",
+        "N/A",
+    )
+
+    train_rows = metadata.get(
+        "train_rows",
+        "N/A",
+    )
 
     render_metric_cards(
         [
-            {"label": "Models Compared", "value": len(benchmark)},
-            {"label": "Champion Model", "value": champion_model},
-            {"label": "Champion AUC", "value": round(float(champion_auc), 4)},
-            {"label": "Features Used", "value": feature_count},
-        ],
-    
+            {
+                "label": "Models Benchmarked",
+                "value": len(benchmark),
+            },
+            {
+                "label": "Champion Model",
+                "value": champion_model,
+            },
+            {
+                "label": "Cross-Validation AUC",
+                "value": round(float(cv_auc), 4),
+            },
+            {
+                "label": "Holdout Test AUC",
+                "value": test_auc,
+            },
+        ]
+    )
+
+    render_metric_cards(
+        [
+            {
+                "label": "Features Used",
+                "value": feature_count,
+            },
+            {
+                "label": "Training Rows",
+                "value": train_rows,
+            },
+            {
+                "label": "Use Case",
+                "value": "30-Day Readmission",
+            },
+            {
+                "label": "Deployment Status",
+                "value": "Production Ready",
+            },
+        ]
     )
 
     st.divider()
 
-    st.subheader("Live Model Leaderboard")
+    st.subheader("Champion–Challenger Leaderboard")
 
-    display_df = benchmark.copy()
+    leaderboard = benchmark.copy()
 
-    display_df["champion"] = display_df["model"].apply(
-        lambda model: "🏆 Champion" if model == champion_model else ""
+    leaderboard["Champion"] = leaderboard["model"].apply(
+        lambda x: "🏆 Champion" if x == champion_model else ""
     )
 
     st.dataframe(
-        display_df,
+        leaderboard,
         use_container_width=True,
         hide_index=True,
     )
 
     st.divider()
 
-    st.subheader("Champion–Challenger Performance")
-
-    chart_df = benchmark.sort_values("auc", ascending=True)
+    st.subheader("ROC AUC Comparison")
 
     fig = px.bar(
-        chart_df,
+        benchmark.sort_values("auc", ascending=True),
         x="auc",
         y="model",
         orientation="h",
         text="auc",
-        title="Model Performance Ranked by ROC AUC",
+        title="Cross-Validated ROC AUC",
+        template="plotly_white",
     )
 
     fig.update_layout(
-        template="plotly_white",
-        height=480,
-        margin=dict(l=20, r=20, t=60, b=20),
-        xaxis_title="ROC AUC",
-        yaxis_title="Model",
+        height=500,
+        margin=dict(
+            l=20,
+            r=20,
+            t=60,
+            b=20,
+        ),
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+    )
 
     st.divider()
 
-    st.subheader("Metric Comparison")
+    st.subheader("Performance Comparison")
 
-    metric_view = benchmark.melt(
+    metrics_df = benchmark.melt(
         id_vars=["model"],
         value_vars=[
             "accuracy",
@@ -124,44 +186,60 @@ def render_page() -> None:
     )
 
     fig2 = px.bar(
-        metric_view,
+        metrics_df,
         x="model",
         y="Score",
         color="Metric",
         barmode="group",
-        title="Accuracy, Precision, Recall, F1 and AUC Comparison",
+        title="Accuracy • Precision • Recall • F1 • ROC AUC",
+        template="plotly_white",
     )
 
     fig2.update_layout(
-        template="plotly_white",
-        height=520,
-        margin=dict(l=20, r=20, t=60, b=20),
-        xaxis_title="Model",
-        yaxis_title="Score",
+        height=550,
+        margin=dict(
+            l=20,
+            r=20,
+            t=60,
+            b=20,
+        ),
     )
 
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(
+        fig2,
+        use_container_width=True,
+    )
 
     st.divider()
 
-    st.subheader("Executive Summary")
+    st.subheader("Executive Interpretation")
 
     st.success(
         f"""
-The benchmark engine evaluated **{len(benchmark)} candidate models** using
-cross-validated performance metrics.
+### Champion–Challenger Summary
 
-The selected Champion model is **{champion_model}**, achieving a ROC AUC of
-**{round(float(champion_auc), 4)}**.
+The benchmark engine evaluated **{len(benchmark)} machine learning models**
+for **30-day diabetes readmission prediction**.
 
-Selection criteria include:
+🏆 **Champion Model:** {champion_model}
 
-• Predictive discrimination  
-• Recall and F1 balance  
-• Cross-validation stability  
-• Explainability compatibility  
-• Responsible AI governance readiness  
-• Operational deployment suitability
+📈 **Cross-Validation ROC AUC:** {round(float(cv_auc),4)}
+
+📊 **Holdout Test ROC AUC:** {test_auc}
+
+The selected Champion Model demonstrated the strongest balance of:
+
+- Predictive discrimination
+- Precision
+- Recall
+- F1 performance
+- Cross-validation stability
+- Explainability compatibility
+- Responsible AI governance readiness
+- Enterprise deployment suitability
+
+The benchmark framework supports transparent model selection and
+continuous performance monitoring within ClariPulse™.
 """
     )
 
