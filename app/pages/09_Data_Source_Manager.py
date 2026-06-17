@@ -7,7 +7,7 @@ Module:
 
 Purpose:
     Enterprise ingestion readiness dashboard for CSV, SQL, FHIR, HL7, and EHR
-    data sources.
+    data sources with safe read-only CSV upload and validation console.
 
 Author:
     Samuel Israel, MD
@@ -25,6 +25,202 @@ import streamlit as st
 from components.hero import render_hero
 from components.metric_cards import render_metric_cards
 from app.v2.ingestion.ingestion_service import IngestionService
+
+
+DIABETES_REQUIRED_COLUMNS = [
+    "time_in_hospital",
+    "num_lab_procedures",
+    "num_procedures",
+    "num_medications",
+    "number_outpatient",
+    "number_emergency",
+    "number_inpatient",
+    "number_diagnoses",
+    "readmitted",
+]
+
+
+def summarize_uploaded_csv(df: pd.DataFrame) -> dict:
+    """Summarize uploaded CSV data safely."""
+
+    return {
+        "rows": int(len(df)),
+        "columns": int(len(df.columns)),
+        "missing_values": int(df.isna().sum().sum()),
+        "duplicate_rows": int(df.duplicated().sum()),
+    }
+
+
+def validate_uploaded_schema(
+    df: pd.DataFrame,
+    required_columns: list[str],
+) -> dict:
+    """Validate uploaded CSV against expected schema."""
+
+    missing_columns = [
+        column for column in required_columns if column not in df.columns
+    ]
+
+    return {
+        "valid": len(missing_columns) == 0,
+        "missing_columns": missing_columns,
+        "required_columns": required_columns,
+    }
+
+
+def render_csv_upload_console() -> None:
+    """Render safe read-only CSV upload and validation console."""
+
+    st.divider()
+
+    st.subheader("CSV Upload & Validation Console")
+
+    st.info(
+        """
+This console is **read-only**. Uploaded CSV files are previewed and validated in memory only.
+
+It does **not** overwrite the current diabetes dataset, does **not** retrain the model,
+and does **not** change the active ClariPulse™ V2 prediction pipeline.
+"""
+    )
+
+    uploaded_file = st.file_uploader(
+        "Upload a hospital analytics CSV file",
+        type=["csv"],
+    )
+
+    if uploaded_file is None:
+        st.caption("Upload a CSV file to preview schema, quality, and compatibility.")
+        return
+
+    try:
+        uploaded_df = pd.read_csv(uploaded_file)
+        uploaded_df = uploaded_df.replace("?", pd.NA)
+
+    except Exception as error:
+        st.error(f"Unable to read uploaded CSV file: {error}")
+        return
+
+    summary = summarize_uploaded_csv(uploaded_df)
+    validation = validate_uploaded_schema(
+        uploaded_df,
+        DIABETES_REQUIRED_COLUMNS,
+    )
+
+    render_metric_cards(
+        [
+            {"label": "Uploaded Rows", "value": summary["rows"]},
+            {"label": "Uploaded Columns", "value": summary["columns"]},
+            {"label": "Missing Values", "value": summary["missing_values"]},
+            {"label": "Duplicate Rows", "value": summary["duplicate_rows"]},
+        ]
+    )
+
+    schema_status = "Compatible" if validation["valid"] else "Review Required"
+
+    render_metric_cards(
+        [
+            {"label": "Schema Status", "value": schema_status},
+            {"label": "Required Columns", "value": len(DIABETES_REQUIRED_COLUMNS)},
+            {
+                "label": "Missing Required Columns",
+                "value": len(validation["missing_columns"]),
+            },
+            {"label": "Mode", "value": "Read-Only"},
+        ]
+    )
+
+    st.divider()
+
+    st.subheader("Uploaded Data Preview")
+
+    st.dataframe(
+        uploaded_df.head(100),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.divider()
+
+    st.subheader("Column Profile")
+
+    column_profile = pd.DataFrame(
+        {
+            "column": uploaded_df.columns,
+            "dtype": [str(dtype) for dtype in uploaded_df.dtypes],
+            "missing_count": uploaded_df.isna().sum().values,
+            "missing_percent": (
+                uploaded_df.isna().mean().values * 100
+            ).round(2),
+            "unique_values": uploaded_df.nunique(dropna=True).values,
+        }
+    )
+
+    st.dataframe(
+        column_profile,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.divider()
+
+    st.subheader("Schema Compatibility Check")
+
+    if validation["valid"]:
+        st.success(
+            """
+The uploaded CSV contains the required columns for the current
+diabetes readmission use case.
+
+This confirms schema compatibility for exploration. Prediction activation and
+model retraining remain disabled unless explicitly implemented later.
+"""
+        )
+    else:
+        st.warning(
+            "The uploaded CSV is missing one or more required columns."
+        )
+
+        missing_df = pd.DataFrame(
+            {
+                "missing_required_column": validation["missing_columns"],
+            }
+        )
+
+        st.dataframe(
+            missing_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.divider()
+
+    st.subheader("Read-Only Safety Status")
+
+    safety_df = pd.DataFrame(
+        {
+            "Safety Control": [
+                "Overwrite production dataset",
+                "Retrain model automatically",
+                "Change active Champion Model",
+                "Change live prediction pipeline",
+                "Store uploaded file permanently",
+            ],
+            "Status": [
+                "Disabled",
+                "Disabled",
+                "Disabled",
+                "Disabled",
+                "Disabled",
+            ],
+        }
+    )
+
+    st.dataframe(
+        safety_df,
+        use_container_width=True,
+        hide_index=True,
+    )
 
 
 def render_page() -> None:
@@ -68,6 +264,8 @@ def render_page() -> None:
         use_container_width=True,
         hide_index=True,
     )
+
+    render_csv_upload_console()
 
     st.divider()
 
@@ -159,6 +357,7 @@ Current supported connectors include:
 
 - CSV ingestion for hospital analytics exports
 - SQL ingestion for structured healthcare databases
+- Safe read-only CSV upload and validation
 
 Planned connectors include:
 
