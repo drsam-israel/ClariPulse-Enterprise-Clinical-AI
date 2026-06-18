@@ -7,6 +7,20 @@
 
 ---
 
+---
+
+# 🚀 Live Demo
+
+Experience **ClariPulse™ Enterprise Edition v2.2** in action.
+
+## 🌐 Launch the Enterprise Clinical AI Product
+
+### **Live Application**
+
+https://claripulse-enterprise-clinical-ai-fwg4ydxtemwrzpfppv8c8c.streamlit.app/
+
+---
+
 # 🚀 Enterprise Clinical AI Product
 
 ClariPulse™ is an **enterprise-grade Clinical AI Product** that combines **predictive analytics, Explainable AI (XAI), Responsible AI governance, executive intelligence, and governed dataset lifecycle management** into a unified decision support ecosystem for modern healthcare organizations.
