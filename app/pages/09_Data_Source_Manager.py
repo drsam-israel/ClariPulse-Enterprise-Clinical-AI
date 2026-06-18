@@ -7,7 +7,8 @@ Module:
 
 Purpose:
     Enterprise ingestion readiness dashboard for CSV, SQL, FHIR, HL7, and EHR
-    data sources with safe read-only CSV upload and validation console.
+    data sources with safe CSV upload, validation, governed staging, and
+    persistent Dataset Registry logging.
 
 Author:
     Samuel Israel, MD
@@ -19,12 +20,17 @@ License:
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
 
 from components.hero import render_hero
 from components.metric_cards import render_metric_cards
 from app.v2.ingestion.ingestion_service import IngestionService
+from app.v2.services.dataset_registry_service import (
+    register_staged_dataset_from_summary,
+)
 
 
 DIABETES_REQUIRED_COLUMNS = [
@@ -68,19 +74,75 @@ def validate_uploaded_schema(
     }
 
 
-def render_csv_upload_console() -> None:
-    """Render safe read-only CSV upload and validation console."""
+def render_staged_dataset_status() -> None:
+    """Render currently staged dataset status."""
+
+    if "staged_dataset_summary" not in st.session_state:
+        return
 
     st.divider()
 
-    st.subheader("CSV Upload & Validation Console")
+    st.subheader("Currently Staged Dataset")
+
+    staged_summary = st.session_state.get("staged_dataset_summary", {})
+    staged_validation = st.session_state.get("staged_dataset_validation", {})
+    staged_name = st.session_state.get("staged_dataset_name", "Uploaded CSV")
+    staged_time = st.session_state.get("staged_dataset_timestamp", "N/A")
+    registry_status = st.session_state.get("staged_dataset_registry_status", "Recorded")
+
+    st.success(
+        f"""
+Dataset staged successfully for governance review.
+
+**Dataset:** {staged_name}  
+**Staged At:** {staged_time}  
+**Registry Status:** {registry_status}  
+**Activation Status:** Not activated  
+**Model Retraining:** Disabled  
+**Production Dataset Overwrite:** Disabled
+"""
+    )
+
+    render_metric_cards(
+        [
+            {"label": "Staged Rows", "value": staged_summary.get("rows", "N/A")},
+            {"label": "Staged Columns", "value": staged_summary.get("columns", "N/A")},
+            {
+                "label": "Missing Values",
+                "value": staged_summary.get("missing_values", "N/A"),
+            },
+            {
+                "label": "Schema Compatible",
+                "value": "Yes" if staged_validation.get("valid") else "No",
+            },
+        ]
+    )
+
+    if st.button("🧹 Clear Staged Dataset", use_container_width=True):
+        st.session_state.pop("staged_dataset", None)
+        st.session_state.pop("staged_dataset_summary", None)
+        st.session_state.pop("staged_dataset_validation", None)
+        st.session_state.pop("staged_dataset_name", None)
+        st.session_state.pop("staged_dataset_timestamp", None)
+        st.session_state.pop("staged_dataset_registry_status", None)
+        st.success("Staged dataset cleared. Default V2 dataset remains unchanged.")
+
+
+def render_csv_upload_console() -> None:
+    """Render safe CSV upload, validation, staging, and registry logging console."""
+
+    st.divider()
+
+    st.subheader("CSV Upload, Validation & Staging Console")
 
     st.info(
         """
-This console is **read-only**. Uploaded CSV files are previewed and validated in memory only.
+This console is governed and safe.
 
-It does **not** overwrite the current diabetes dataset, does **not** retrain the model,
-and does **not** change the active ClariPulse™ V2 prediction pipeline.
+Uploaded CSV files are previewed and validated in memory. When staged, the dataset is
+stored only in the current Streamlit session for review and recorded in the persistent
+Dataset Registry. It does **not** overwrite the current diabetes dataset, does **not**
+retrain the model, and does **not** change the active ClariPulse™ V2 prediction pipeline.
 """
     )
 
@@ -88,6 +150,8 @@ and does **not** change the active ClariPulse™ V2 prediction pipeline.
         "Upload a hospital analytics CSV file",
         type=["csv"],
     )
+
+    render_staged_dataset_status()
 
     if uploaded_file is None:
         st.caption("Upload a CSV file to preview schema, quality, and compatibility.")
@@ -126,7 +190,7 @@ and does **not** change the active ClariPulse™ V2 prediction pipeline.
                 "label": "Missing Required Columns",
                 "value": len(validation["missing_columns"]),
             },
-            {"label": "Mode", "value": "Read-Only"},
+            {"label": "Mode", "value": "Staging Only"},
         ]
     )
 
@@ -169,16 +233,18 @@ and does **not** change the active ClariPulse™ V2 prediction pipeline.
     if validation["valid"]:
         st.success(
             """
-The uploaded CSV contains the required columns for the current
-diabetes readmission use case.
+The uploaded CSV contains the required columns for the current diabetes readmission
+use case.
 
-This confirms schema compatibility for exploration. Prediction activation and
-model retraining remain disabled unless explicitly implemented later.
+This confirms schema compatibility for exploration and staging. Production activation
+and model retraining remain disabled.
 """
         )
     else:
         st.warning(
-            "The uploaded CSV is missing one or more required columns."
+            "The uploaded CSV is missing one or more required columns. It may still be "
+            "staged for governance review, but it is not compatible with the current "
+            "diabetes readmission prediction schema."
         )
 
         missing_df = pd.DataFrame(
@@ -195,7 +261,55 @@ model retraining remain disabled unless explicitly implemented later.
 
     st.divider()
 
-    st.subheader("Read-Only Safety Status")
+    st.subheader("Governed Dataset Staging")
+
+    st.warning(
+        """
+Staging is not activation. A staged dataset is held only in the current session for
+data review, governance assessment, and schema validation. It is also recorded in the
+persistent Dataset Registry for audit visibility. It does not change the active model
+or production dataset.
+"""
+    )
+
+    if st.button("📥 Stage Uploaded Dataset for Governance Review", use_container_width=True):
+        staged_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        st.session_state["staged_dataset"] = uploaded_df
+        st.session_state["staged_dataset_summary"] = summary
+        st.session_state["staged_dataset_validation"] = validation
+        st.session_state["staged_dataset_name"] = uploaded_file.name
+        st.session_state["staged_dataset_timestamp"] = staged_timestamp
+
+        try:
+            registry_record = register_staged_dataset_from_summary(
+                dataset_name=uploaded_file.name,
+                summary=summary,
+                validation=validation,
+            )
+
+            st.session_state["staged_dataset_registry_status"] = "Recorded"
+
+            st.success(
+                "Uploaded dataset staged successfully and recorded in the Dataset Registry. "
+                "Production dataset remains unchanged."
+            )
+
+            with st.expander("View Registry Record"):
+                st.json(registry_record)
+
+        except Exception as error:
+            st.session_state["staged_dataset_registry_status"] = "Registry Error"
+
+            st.warning(
+                "Dataset was staged in the current session, but registry logging failed."
+            )
+
+            st.error(str(error))
+
+    st.divider()
+
+    st.subheader("Staging Safety Controls")
 
     safety_df = pd.DataFrame(
         {
@@ -205,6 +319,8 @@ model retraining remain disabled unless explicitly implemented later.
                 "Change active Champion Model",
                 "Change live prediction pipeline",
                 "Store uploaded file permanently",
+                "Record dataset in registry",
+                "Allow governance staging",
             ],
             "Status": [
                 "Disabled",
@@ -212,6 +328,8 @@ model retraining remain disabled unless explicitly implemented later.
                 "Disabled",
                 "Disabled",
                 "Disabled",
+                "Enabled",
+                "Enabled",
             ],
         }
     )
@@ -277,6 +395,8 @@ def render_page() -> None:
                 "Source Systems",
                 "Connector Layer",
                 "Validation Layer",
+                "Staging Layer",
+                "Registry Layer",
                 "Feature Engineering",
                 "AI Prediction Layer",
                 "Governance Layer",
@@ -286,6 +406,8 @@ def render_page() -> None:
                 "CSV, SQL, FHIR, HL7, Epic, Cerner, OpenMRS",
                 "Standardized connectors for structured healthcare data",
                 "Schema checks, missingness review, quality validation",
+                "Session-based governed staging for uploaded datasets",
+                "Persistent dataset registry with audit-ready metadata",
                 "Clinical feature transformation and target preparation",
                 "Champion Model inference and risk scoring",
                 "Bias, drift, explainability, audit readiness",
@@ -351,13 +473,13 @@ def render_page() -> None:
     st.info(
         """
 ClariPulse™ V2 now includes the foundation of a pluggable enterprise ingestion
-architecture.
+architecture with governed dataset staging and persistent registry logging.
 
 Current supported connectors include:
 
 - CSV ingestion for hospital analytics exports
 - SQL ingestion for structured healthcare databases
-- Safe read-only CSV upload and validation
+- Safe CSV upload, validation, preview, session-based staging, and registry recording
 
 Planned connectors include:
 

@@ -84,6 +84,11 @@ pages = {
             "app/pages/09_Data_Source_Manager.py",
             title="Data Source Manager",
             icon="🔌",
+        ),
+        st.Page(
+           "app/pages/10_Dataset_Registry.py",
+            title="Dataset Registry",
+            icon="📚",
         )
     ]
 }
