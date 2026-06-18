@@ -89,6 +89,11 @@ pages = {
            "app/pages/10_Dataset_Registry.py",
             title="Dataset Registry",
             icon="📚",
+        ),
+        st.Page(
+           "app/pages/11_Dataset_Governance.py",
+            title="Dataset Governance",
+            icon="🛡️",
         )
     ]
 }
