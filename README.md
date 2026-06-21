@@ -17,7 +17,7 @@ Experience **ClariPulse™ Enterprise Edition v2.2** in action.
 
 ### **Live Application**
 
-https://claripulse-enterprise-clinical-ai-fwg4ydxtemwrzpfppv8c8c.streamlit.app/
+https://claripulse-enterprise-clinical-ai-1.onrender.com/
 
 ---
 
